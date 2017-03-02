@@ -1,0 +1,121 @@
+#!/bin/bash
+# {{ansible_managed}}
+######################################################################
+# Description:
+#   When modifying /etc/network/interfaces on a server there is a risk to loose
+#   network connectivity. This script first backup the current working
+#   configuration, then recursively ping a known host until it fails, which
+#   happens during the "ifdown". But soon after, the "ifup" should bring
+#   interface up back, and ping should resume. If it were not the case after a
+#   configured delay, then this script will revert the previous configuration.
+######################################################################
+# Changelog:
+#   2017-02-23 - MathieuMD - Creation.
+######################################################################
+set -e
+
+PINGHOST="${1}"
+
+WATCHDURATION="${2:-30}"
+MAXDOWNTIME="${3:-5}"
+
+PINGTIMEOUT=1
+WATCHINTERVAL=2
+
+BACKUPFILE="/var/backups/etc-network-$(date +%F).tar.gz"
+
+# If environment variable DEBUG is 1, then do not touch filesystem.
+DEBUG=${DEBUG:-0}
+
+######################################################################
+
+if [ -z $PINGHOST ]; then
+    echo "ERR: First argument must be the host to ping."
+    exit 1
+fi
+
+######################################################################
+
+backup_network() {
+    echo "Backing up /etc/network..."
+    if [ $DEBUG -eq 0 ]; then
+        cd /etc
+        rm -f $BACKUPFILE
+        tar -czf $BACKUPFILE network/
+        cd
+    fi
+}
+
+remove_backup() {
+    echo "Removing temp backup file..."
+    if [ $DEBUG -eq 0 ]; then
+        rm -f $BACKUPFILE
+    fi
+}
+
+restore_network() {
+    echo "WARN: Restoring /etc/network..."
+    if [ $DEBUG -eq 0 ]; then
+        cd /etc
+        # rm -rf network/
+        mv network/ /tmp
+        tar -xzf $BACKUPFILE
+        cd
+        echo "WARN: Reloading network..."
+        /etc/init.d/networking reload
+    fi
+    remove_backup
+}
+
+check_ping() {
+    ping -c1 -W$PINGTIMEOUT $PINGHOST >/dev/null 2>&1
+}
+
+######################################################################
+
+backup_network
+
+STARTTIME="$(date +%s)"
+
+echo -n "Watching ping to ${PINGHOST}: [ "
+while true; do
+    CURRENTTIME="$(date +%s)"
+
+    # Did we reach the end of our watching guard?
+    if [ $((CURRENTTIME-STARTTIME)) -ge $WATCHDURATION ]; then
+        echo " ]"
+        echo "Watch guard ended normally after ${WATCHDURATION}s."
+        remove_backup
+        exit
+    fi
+
+    # Until now, all's good.
+    if check_ping; then
+        echo -n "."
+        # If it's a recovery after a down time, then we can quit
+        if [ -n "$DOWNSTARTTIME" ]; then
+            echo " ]"
+            echo "Recovered after $((CURRENTTIME-DOWNSTARTTIME))s of down time."
+            echo "New network configuration seems OK."
+            remove_backup
+            exit
+        fi
+
+    # We lost connectivity!
+    else
+        echo -n "X"
+        # Store the start of the ifdown
+        if [ -z "$DOWNSTARTTIME" ]; then
+            DOWNSTARTTIME="$(date +%s)"
+        fi
+        # If we are down for too long, fall back to prev conf!
+        if [ $((CURRENTTIME-DOWNSTARTTIME)) -ge $MAXDOWNTIME ]; then
+            echo " ]"
+            echo "WARN: Down time over ${MAXDOWNTIME}s, it's too long!"
+            restore_network
+            exit 1
+        fi
+    fi
+
+    sleep $WATCHINTERVAL
+done

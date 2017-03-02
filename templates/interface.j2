@@ -1,0 +1,55 @@
+# {{ansible_managed}}
+
+{% if item.comment is defined %}
+# {{item.comment}}
+{% endif %}
+{% if item.auto|default(true) %}
+auto {{item.name}}
+{% endif %}
+{# If there is no v4 or v6, then it's an IPv4 #}
+{% if item.v4 is not defined and item.v6 is not defined %}
+iface {{item.name}} inet {{item.method}}
+{%  if item.address is defined %}
+  address {{ item.address }}
+{%  endif %}
+{%  if item.gateway is defined %}
+  gateway {{ item.gateway }}
+{%  endif %}
+{%  if item.other_settings is defined %}
+{%   for other_setting in item.other_settings %}
+  {{other_setting}}
+{%   endfor %}
+{%  endif %}
+{% else %}
+{%  if item.v4 is defined %}
+
+iface {{item.name}} inet {{item.v4.method}}
+{%   if item.v4.address is defined %}
+  address {{ item.v4.address }}
+{%   endif %}
+{%   if item.v4.gateway is defined %}
+  gateway {{ item.v4.gateway }}
+{%   endif %}
+{%   if item.v4.other_settings is defined %}
+{%    for other_setting in item.v4.other_settings %}
+  {{other_setting}}
+{%    endfor %}
+{%   endif %}
+{%  endif %}
+{%  if item.v6 is defined %}
+
+iface {{item.name}} inet6 {{item.v6.method}}
+{%   if item.v6.address is defined %}
+  address {{ item.v6.address }}
+{%   endif %}
+{%   if item.v6.gateway is defined %}
+  gateway {{ item.v6.gateway }}
+{%   endif %}
+{%   if item.v6.other_settings is defined %}
+{%    for other_setting in item.v6.other_settings %}
+  {{other_setting}}
+{%    endfor %}
+{%   endif %}
+{%  endif %}
+{% endif %}
+

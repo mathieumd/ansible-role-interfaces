@@ -1,0 +1,28 @@
+---
+# For examples of configurations, see README.md.
+interfaces_interfaces: []
+
+# Required packages
+interfaces_packages:
+  - bridge-utils
+  - ifenslave
+  - vlan
+
+# The watchdog (run from remote host) will ping the Ansible host during this
+# number of seconds
+interfaces_watchdog_duration: 15
+
+# The watchdog will revert network configuration if it cannot ping host for
+# more than this number of seconds
+interfaces_watchdog_max_downtime: 4
+
+# The watchdog's logs are saved in this file (on remote host)
+interfaces_watchdog_log: /tmp/ansible-network_interfaces_watchdog.log
+
+# Remote path where to save watchdog script
+interfaces_watchdog_dest: /opt/network_connectivity_watchdog.sh
+
+# Files created in /etc/network/interfaces.d/ will be prefix by this string
+interfaces_prefix: ansible-
+
+# vim: ft=ansible

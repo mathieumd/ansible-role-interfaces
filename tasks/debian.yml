@@ -1,0 +1,90 @@
+---
+
+- name: Installing required packages
+  apt:
+    name: "{{item}}"
+    state: present
+  with_items: "{{interfaces_packages}}"
+
+# This "Network Watchdog" allows to fallback to previous working network conf.
+- name: Copy network watchdog
+  template:
+    src: network_connectivity_watchdog.sh.j2
+    dest: "{{interfaces_watchdog_dest}}"
+    mode: 0744
+    owner: root
+    group: root
+
+- name: Retrieve your IP to ping it by watchdog
+  setup:
+  become: no
+
+# It watches during interfaces_watchdog_duration seconds, and if
+# network is down for interfaces_watchdog_max_downtime seconds,
+# it reverts the conf.
+- name: Launch network watchdog in background
+  shell: "( date ; {{interfaces_watchdog_dest}} {{ansible_env.SSH_CLIENT.split() | first}} {{interfaces_watchdog_duration}} {{interfaces_watchdog_max_downtime}} ) >> {{interfaces_watchdog_log}} 2>&1"
+  args:
+    executable: /bin/bash
+  async: "{{interfaces_watchdog_duration}}"
+  poll: 0
+  register: network_watchdog
+# Watchdog logs saved in interfaces_watchdog_log
+
+# Actually start to reconfigure network
+
+- name: Find current sourced interfaces files
+  command: find /etc/network/interfaces.d -type f -printf "%f\n"
+  changed_when: false
+  when: interfaces_interfaces|length > 0
+  register: sourced_interfaces_files_before
+
+- name: Configuration of sourced interfaces files
+  template:
+    src: interface.j2
+    dest: "/etc/network/interfaces.d/{{interfaces_prefix}}{{item.name}}"
+    owner: root
+    group: root
+    mode: 0644
+  with_items: "{{interfaces_interfaces}}"
+  register: config_interfaces
+
+- name: Make a list of interfaces names
+  set_fact:
+    config_interfaces_names: >
+      [{% for item in config_interfaces.results|default([]) -%}
+        {{interfaces_prefix}}{{item.item.name|string}}{{'' if loop.last else ','}}
+      {%- endfor %}]
+
+- name: Configuration of main interfaces file
+  template:
+    src: interfaces.j2
+    dest: /etc/network/interfaces
+    owner: root
+    group: root
+    mode: 0644
+    backup: yes
+
+- name: Remove obsolete sourced interfaces files
+  file:
+    path: "/etc/network/interfaces.d/{{item}}"
+    state: absent
+  with_items: "{{sourced_interfaces_files_before.stdout_lines|default([])}}"
+  when: item not in config_interfaces_names|default([])
+
+- name: Bounce changed interfaces
+  shell: "ifdown {{item.item.name}} ; ifup {{item.item.name}}"
+  with_items: "{{config_interfaces.results}}"
+  register: bounce_interfaces
+  when: config_interfaces is defined and item.changed
+
+# Check watchdog status to stop Ansible if reconfiguration failed
+- name: Fail here if the configuration has been reverted by watchdog
+  async_status: jid={{ network_watchdog.ansible_job_id }}
+  register: job_result
+  until: job_result.finished
+  retries: 30
+  changed_when: no
+  when: bounce_interfaces is defined and bounce_interfaces.changed
+
+# vim: ft=ansible
