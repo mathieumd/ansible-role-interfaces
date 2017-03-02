@@ -43,6 +43,14 @@
 # Configuration
 ######################################################################
 
+- name: Make sure sourced interfaces folder exists
+  file:
+    path: /etc/network/interfaces.d
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
 - name: Retrieve list of current sourced interfaces files
   command: find /etc/network/interfaces.d -type f -printf "%f\n"
   changed_when: false
