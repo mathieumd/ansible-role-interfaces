@@ -125,8 +125,8 @@ galaxy_info:
   #  - 9.1
   #  - 9.2
   #  - 9.3
-  #- name: Ubuntu
-  #  versions:
+  - name: Ubuntu
+    versions:
   #  - all
   #  - lucid
   #  - maverick
@@ -140,7 +140,7 @@ galaxy_info:
   #  - utopic
   #  - vivid
   #  - wily
-  #  - xenial
+    - xenial
   #  - yakkety
   - name: Debian
     versions:
