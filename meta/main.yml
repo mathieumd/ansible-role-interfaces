@@ -151,7 +151,7 @@ galaxy_info:
   #  - sid
   #  - squeeze
     - stretch
-  #  - wheezy
+    - wheezy
   #- name: Alpine
   #  versions:
   #  - all
