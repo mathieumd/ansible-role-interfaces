@@ -1,13 +1,21 @@
 ---
 
+######################################################################
+# Requirements
+######################################################################
+
 - name: Installing required packages
   apt:
     name: "{{item}}"
     state: present
   with_items: "{{interfaces_packages}}"
 
+######################################################################
+# Preparation
+######################################################################
+
 # This "Network Watchdog" allows to fallback to previous working network conf.
-- name: Copy network watchdog
+- name: "Watchdog: Copy network watchdog script"
   template:
     src: network_connectivity_watchdog.sh.j2
     dest: "{{interfaces_watchdog_dest}}"
@@ -15,14 +23,14 @@
     owner: root
     group: root
 
-- name: Retrieve your IP to ping it by watchdog
+- name: "Watchdog: Retrieve operator IP to ping it"
   setup:
   become: no
 
 # It watches during interfaces_watchdog_duration seconds, and if
 # network is down for interfaces_watchdog_max_downtime seconds,
 # it reverts the conf.
-- name: Launch network watchdog in background
+- name: "Watchdog: Launch network watchdog in background"
   shell: "( date ; {{interfaces_watchdog_dest}} {{ansible_env.SSH_CLIENT.split() | first}} {{interfaces_watchdog_duration}} {{interfaces_watchdog_max_downtime}} ) >> {{interfaces_watchdog_log}} 2>&1"
   args:
     executable: /bin/bash
@@ -31,9 +39,11 @@
   register: network_watchdog
 # Watchdog logs saved in interfaces_watchdog_log
 
-# Actually start to reconfigure network
+######################################################################
+# Configuration
+######################################################################
 
-- name: Find current sourced interfaces files
+- name: Retrieve list of current sourced interfaces files
   command: find /etc/network/interfaces.d -type f -printf "%f\n"
   changed_when: false
   when: interfaces_interfaces|length > 0
@@ -47,12 +57,12 @@
     group: root
     mode: 0644
   with_items: "{{interfaces_interfaces}}"
-  register: config_interfaces
+  register: configured_interfaces
 
-- name: Make a list of interfaces names
+- name: List the configured interfaces names
   set_fact:
-    config_interfaces_names: >
-      [{% for item in config_interfaces.results|default([]) -%}
+    configured_interfaces_names: >
+      [{% for item in configured_interfaces.results|default([]) -%}
         {{interfaces_prefix}}{{item.item.name|string}}{{'' if loop.last else ','}}
       {%- endfor %}]
 
@@ -65,26 +75,37 @@
     mode: 0644
     backup: yes
 
+######################################################################
+# Cleanup
+######################################################################
+
+# Remove old interfaces
+- name: Stop obsolete interfaces
+  shell: "ifdown {{item | regex_replace('ansible-(.*)$', '\\1') }}"
+  with_items: "{{sourced_interfaces_files_before.stdout_lines|default([])}}"
+  when: item not in configured_interfaces_names|default([])
+
 - name: Remove obsolete sourced interfaces files
   file:
     path: "/etc/network/interfaces.d/{{item}}"
     state: absent
   with_items: "{{sourced_interfaces_files_before.stdout_lines|default([])}}"
-  when: item not in config_interfaces_names|default([])
+  when: item not in configured_interfaces_names|default([])
 
-- name: Bounce changed interfaces
+# Restart interfaces
+- name: Retart changed interfaces
   shell: "ifdown {{item.item.name}} ; ifup {{item.item.name}}"
-  with_items: "{{config_interfaces.results}}"
-  register: bounce_interfaces
-  when: config_interfaces is defined and item.changed
+  with_items: "{{configured_interfaces.results}}"
+  register: restarted_interfaces
+  when: configured_interfaces is defined and item.changed
 
 # Check watchdog status to stop Ansible if reconfiguration failed
-- name: Fail here if the configuration has been reverted by watchdog
+- name: "Watchdog: Fail here if this new conf has been reverted!"
   async_status: jid={{ network_watchdog.ansible_job_id }}
   register: job_result
   until: job_result.finished
   retries: 30
   changed_when: no
-  when: bounce_interfaces is defined and bounce_interfaces.changed
+  when: restarted_interfaces is defined and restarted_interfaces.changed
 
 # vim: ft=ansible

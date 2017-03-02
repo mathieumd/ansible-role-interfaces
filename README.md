@@ -146,7 +146,7 @@ interfaces_interfaces_common:
   - { name: bond0, ... }
   - { name: vlan100, ... }
 
-# Fusion(union) of these two lists:
+# Fusion (union) of these two lists:
 interfaces_interfaces: "{{ interfaces_interfaces_local | union( interfaces_interfaces_common ) }}"
 ```
 
@@ -178,21 +178,14 @@ Example Playbook
 Notes
 -----
 
-This roles works for adding interfaces and IP addresses. But to remove them,
-you have to do it manually:
+Currently, this role cannot modify the IP of an interface, it only adds IP to
+it. So, in order to remove an IP from an interface (without rebooting!), you
+have to do it manually:
 
 ```bash
-# Remove an IP from an interface:
 IFNAME=ethX
 IPADDR=192.0.2.123
 ip address del ${IPADDR:?} dev ${IFNAME:?}
-
-# Remove an interface:
-IFNAME=bondX
-IFTYPE=bond
-ifdown ${IFNAME:?} \
-  && ip link delete dev ${IFNAME:?} type ${IFTYPE:?} \
-  && rm -f /etc/network/interfaces.d/ansible-${IFNAME:?}
 ```
 
 License
