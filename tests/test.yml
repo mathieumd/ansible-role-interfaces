@@ -1,5 +1,22 @@
 ---
-- hosts: localhost
-  remote_user: root
+- hosts: all
   roles:
-    - mathieumd.interfaces
+    - role: ansible-role-interfaces
+      interfaces_interfaces:
+        - name: eth0
+          comment: Test Vagrant 1
+          method: dhcp
+        # - name: eth1
+        #   comment: Test Vagrant 2
+        #   method: manual
+        # - name: eth2
+        #   comment: Test Vagrant 2
+        #   method: manual
+        # - name: bond1
+        #   method: static
+        #   address: 192.168.123.123/24
+        #   other_settings:
+        #     - bond-mode active-backup
+        #     - bond-slaves eth1 eth2
+
+# vim: ft=ansible

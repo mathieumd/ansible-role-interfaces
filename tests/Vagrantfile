@@ -1,0 +1,36 @@
+boxes = [
+  { :name => "debian8", :box => "debian/jessie64" },
+  { :name => "debian7", :box => "debian/wheezy64" },
+  # { :name => "ubuntu16", :box => "ubuntu/xenial64" },
+]
+Vagrant.configure("2") do |config|
+  boxes.each_with_index do |box, index|
+    config.vm.define box[:name] do |b|
+      b.vm.box = box[:box]
+      b.vm.hostname = box[:name]
+      b.vm.provider "virtualbox" do |v|
+        v.customize ["modifyvm", :id, "--memory", 256]
+        # FIXME Add more interface and configure them!
+        # v.customize ["modifyvm", :id, "--nic1", "nat"]
+        # v.customize ["modifyvm", :id, "--natpf1", "guestssh,tcp,,2222,,22"]
+        # v.customize ["modifyvm", :id, "--nic2", "nat"]
+        # v.customize ["modifyvm", :id, "--nic3", "nat"]
+        # v.customize ["modifyvm", :id, "--nictype1", "82545EM"]
+        # v.customize ["modifyvm", :id, "--nictype2", "82545EM"]
+        # v.customize ["modifyvm", :id, "--nictype3", "82545EM"]
+        # v.customize ["modifyvm", :id, "--natnet1", "10.0.2.0/24"]
+        # v.customize ["modifyvm", :id, "--natnet2", "10.0.2.0/24"]
+        # v.customize ["modifyvm", :id, "--natnet3", "10.0.2.0/24"]
+      end
+      # The last VM is also used to provision all VMs at once.
+      if index == boxes.length - 1
+        b.vm.provision "ansible" do |a|
+          a.playbook = "test.yml"
+          a.sudo = true
+          a.limit = 'all'
+        end
+      end
+    end
+  end
+end
+# vim: ft=ruby sw=2 sts=2

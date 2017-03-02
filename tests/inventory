@@ -1,1 +1,2 @@
-localhost
+debian8	 remote_user=vagrant
+debian7	 remote_user=vagrant
