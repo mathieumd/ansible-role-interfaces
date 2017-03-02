@@ -1,0 +1,15 @@
+---
+- hosts: all
+  roles:
+    - role: ansible-role-interfaces
+      interfaces_interfaces:
+        - name: "{{ansible_default_ipv4.interface}}"
+          comment: Test Vagrant 2
+          method: manual
+        - name: bond0
+          method: dhcp
+          other_settings:
+            - bond-mode active-backup
+            - "bond-slaves {{ansible_default_ipv4.interface}}"
+
+# vim: ft=ansible

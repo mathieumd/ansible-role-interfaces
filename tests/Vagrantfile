@@ -1,7 +1,7 @@
 boxes = [
   { :name => "debian8", :box => "debian/jessie64" },
   { :name => "debian7", :box => "debian/wheezy64" },
-  # { :name => "ubuntu16", :box => "ubuntu/xenial64" },
+  { :name => "ubuntu16", :box => "ubuntu/xenial64" },
 ]
 Vagrant.configure("2") do |config|
   boxes.each_with_index do |box, index|
@@ -22,6 +22,9 @@ Vagrant.configure("2") do |config|
         # v.customize ["modifyvm", :id, "--natnet2", "10.0.2.0/24"]
         # v.customize ["modifyvm", :id, "--natnet3", "10.0.2.0/24"]
       end
+      if box[:name] == "ubuntu16"
+        b.vm.provision "shell", run: "once", inline: "[ ! -e /usr/bin/python ] && sudo ln -s /usr/bin/python{3,} || true"
+      end
       # The last VM is also used to provision all VMs at once.
       if index == boxes.length - 1
         b.vm.provision "ansible" do |a|
@@ -33,4 +36,8 @@ Vagrant.configure("2") do |config|
     end
   end
 end
+
+# Ubuntu:
+# sudo ln -s /usr/bin/python{3,}
+
 # vim: ft=ruby sw=2 sts=2

@@ -3,7 +3,7 @@
   roles:
     - role: ansible-role-interfaces
       interfaces_interfaces:
-        - name: eth0
+        - name: "{{ansible_default_ipv4.interface}}"
           comment: Test Vagrant 1
           method: dhcp
         # - name: eth1

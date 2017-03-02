@@ -1,2 +1,3 @@
-debian8	 remote_user=vagrant
-debian7	 remote_user=vagrant
+debian8		remote_user=vagrant
+debian7		remote_user=vagrant
+ubuntu16	remote_user=ubuntu
