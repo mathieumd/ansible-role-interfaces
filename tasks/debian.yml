@@ -52,7 +52,7 @@
     mode: 0755
 
 - name: Retrieve list of current sourced interfaces files
-  command: find /etc/network/interfaces.d -type f -printf "%f\n"
+  command: find /etc/network/interfaces.d -type f -name "{{interfaces_prefix}}*" -printf "%f\n"
   changed_when: false
   when: interfaces_interfaces|length > 0
   register: sourced_interfaces_files_before
@@ -89,7 +89,7 @@
 
 # Remove old interfaces
 - name: Stop obsolete interfaces
-  shell: "ifdown {{item | regex_replace('ansible-(.*)$', '\\1') }}"
+  shell: "ifdown {{item | regex_replace('{{interfaces_prefix}}(.*)$', '\\1') }}"
   with_items: "{{sourced_interfaces_files_before.stdout_lines|default([])}}"
   when: item not in configured_interfaces_names|default([])
 
